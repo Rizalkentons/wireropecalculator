@@ -22,6 +22,7 @@ def create_app(test_config=None):
 
     app.config.from_mapping(
         SECRET_KEY=os.environ.get("SECRET_KEY", "dev"),
+        SITE_PASSWORD=os.environ.get("SITE_PASSWORD", "changeme"),
         DATABASE=os.path.join(app.instance_path, "library.db"),
         LIBRARY_UPLOAD_FOLDER=os.path.join(uploads_root, "library"),
         QUOTATION_INCOMING_FOLDER=os.path.join(uploads_root, "quotations", "incoming"),
@@ -39,6 +40,9 @@ def create_app(test_config=None):
 
     from . import db
     db.init_app(app)
+
+    from . import auth
+    auth.init_app(app)
 
     from .importers import kata_baku
     kata_baku.init_app(app)

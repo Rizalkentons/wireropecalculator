@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Login</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body class="home">
+    <nav class="home-nav">
+        <div class="home-brand"><span class="dot"></span>WireRope<strong>.</strong></div>
+    </nav>
+
+    <div class="login-wrap">
+        <form class="login-card" method="post">
+            {% with messages = get_flashed_messages() %}
+                {% if messages %}
+                    <ul class="flashes">
+                        {% for message in messages %}
+                            <li>{{ message }}</li>
+                        {% endfor %}
+                    </ul>
+                {% endif %}
+            {% endwith %}
+            <h1>Enter Password</h1>
+            <p class="login-sub">Internal tool — ask Muhammad Rizal Baihaqi for access.</p>
+            <input type="password" name="password" placeholder="Password" autofocus required>
+            <input class="upload-submit" type="submit" value="Continue">
+        </form>
+    </div>
+</body>
+</html>

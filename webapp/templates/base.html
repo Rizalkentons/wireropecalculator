@@ -8,7 +8,12 @@
 <body>
     <nav class="topnav">
         <a class="brand" href="{{ url_for('index') }}"><span class="dot"></span>WireRope<strong>.</strong></a>
-        <a class="home-link" href="{{ url_for('index') }}">&larr; Home</a>
+        <div style="display:flex; align-items:center; gap:1.25rem;">
+            <a class="home-link" href="{{ url_for('index') }}">&larr; Home</a>
+            <form action="{{ url_for('auth.logout') }}" method="post">
+                <button type="submit" class="logout-btn">Logout</button>
+            </form>
+        </div>
     </nav>
     <main>
         {% with messages = get_flashed_messages() %}

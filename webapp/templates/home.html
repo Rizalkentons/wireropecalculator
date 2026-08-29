@@ -13,9 +13,14 @@
       <div class="home-brand">
         <span class="dot"></span>WireRope<strong>.</strong>
       </div>
-      <a class="home-cta-pill" href="{{ url_for('quotation.index') }}"
-        >Open Picture Tool</a
-      >
+      <div style="display:flex; align-items:center; gap:1rem;">
+        <a class="home-cta-pill" href="{{ url_for('quotation.index') }}"
+          >Open Picture Tool</a
+        >
+        <form action="{{ url_for('auth.logout') }}" method="post">
+          <button type="submit" class="logout-btn">Logout</button>
+        </form>
+      </div>
     </nav>
 
     <header class="hero">

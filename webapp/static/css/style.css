@@ -214,6 +214,20 @@ body.home {
     font-weight: 600;
 }
 .home-cta-pill:hover { opacity: 0.85; }
+.logout-btn {
+    background: none;
+    border: none;
+    color: inherit;
+    font: inherit;
+    font-weight: 600;
+    font-size: 0.85rem;
+    cursor: pointer;
+    padding: 0;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+.topnav .logout-btn { color: var(--brand-blue); }
+.home-nav .logout-btn { color: #555; }
 
 .hero {
     max-width: 1180px;
@@ -315,3 +329,32 @@ body.home {
     font-size: 0.85rem;
     border-top: 1px solid #eee;
 }
+
+/* ---------- Login page ---------- */
+.login-wrap {
+    display: flex;
+    justify-content: center;
+    padding: 4rem 1.5rem;
+}
+.login-card {
+    background: #fff;
+    border: 1px solid #ececec;
+    border-radius: 16px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+    padding: 2rem;
+    max-width: 360px;
+    width: 100%;
+    text-align: center;
+}
+.login-card h1 { font-size: 1.4rem; margin: 0 0 0.4rem; }
+.login-sub { color: #666; font-size: 0.9rem; margin: 0 0 1.5rem; }
+.login-card input[type=password] {
+    width: 100%;
+    padding: 0.65rem 0.8rem;
+    border: 1px solid #dcdcdc;
+    border-radius: 8px;
+    font-family: inherit;
+    font-size: 1rem;
+    margin-bottom: 1rem;
+}
+.login-card input[type=password]:focus { outline: none; border-color: var(--brand-blue); }
