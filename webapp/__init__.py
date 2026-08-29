@@ -28,6 +28,7 @@ def create_app(test_config=None):
         QUOTATION_INCOMING_FOLDER=os.path.join(uploads_root, "quotations", "incoming"),
         QUOTATION_PROCESSED_FOLDER=os.path.join(uploads_root, "quotations", "processed"),
         MAX_CONTENT_LENGTH=25 * 1024 * 1024,  # 25 MB
+        QUOTATION_RETENTION_DAYS=int(os.environ.get("QUOTATION_RETENTION_DAYS", 30)),
     )
 
     if test_config is not None:
@@ -43,6 +44,9 @@ def create_app(test_config=None):
 
     from . import auth
     auth.init_app(app)
+
+    from . import cleanup
+    cleanup.init_app(app)
 
     from .importers import kata_baku
     kata_baku.init_app(app)
