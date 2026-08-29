@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Edit Tags{% endblock %}
+{% block content %}
+<h1>Edit Tags</h1>
+
+<div class="card">
+    {% if picture.filename %}
+        <img class="thumb" src="{{ url_for('library.image', filename=picture.filename) }}" alt="">
+    {% else %}
+        <div class="thumb-placeholder">No picture uploaded yet</div>
+    {% endif %}
+
+    <form action="{{ url_for('library.edit', picture_id=picture.id) }}" method="post">
+        <label for="tags">Keyword / description tag(s), comma-separated</label>
+        <textarea id="tags" name="tags" rows="3">{{ picture.tags | join(', ') }}</textarea>
+        <p><input type="submit" value="Save tags"></p>
+    </form>
+
+    <p><a href="{{ url_for('library.index') }}">Back to library</a></p>
+</div>
+{% endblock %}

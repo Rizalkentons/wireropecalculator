@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}Picture Library{% endblock %}
+{% block content %}
+<h1>Picture Library</h1>
+
+<div class="card">
+    <h2>Add a new picture</h2>
+    <form action="{{ url_for('library.upload') }}" method="post" enctype="multipart/form-data">
+        <label for="picture">Picture file</label>
+        <input type="file" id="picture" name="picture" accept="image/*" required>
+
+        <label for="tags">Keyword / description tag(s), comma-separated</label>
+        <textarea id="tags" name="tags" rows="2" placeholder="e.g. Mechanical splice sling with thimble eye at one end and tappered / plain (seizing) at the other end" required></textarea>
+
+        <p><input type="submit" value="Upload"></p>
+    </form>
+</div>
+
+<h2>Library items ({{ pictures|length }})</h2>
+<div class="grid">
+    {% for pic in pictures %}
+    <div class="card">
+        {% if pic.filename %}
+            <img class="thumb" src="{{ url_for('library.image', filename=pic.filename) }}" alt="{{ pic.tags[0] if pic.tags else '' }}">
+            <p class="status-ok">✓ Picture attached</p>
+        {% else %}
+            <div class="thumb-placeholder">No picture uploaded yet</div>
+        {% endif %}
+
+        <p class="tags">{{ pic.tags | join(' | ') }}</p>
+
+        <p>
+            <a href="{{ url_for('library.edit', picture_id=pic.id) }}">Edit tags</a>
+        </p>
+
+        <form action="{{ url_for('library.upload_image', picture_id=pic.id) }}" method="post" enctype="multipart/form-data" class="inline">
+            <input type="file" name="picture" accept="image/*" required>
+            <input type="submit" value="{{ 'Replace picture' if pic.filename else 'Attach picture' }}">
+        </form>
+
+        <form action="{{ url_for('library.delete', picture_id=pic.id) }}" method="post" class="inline" onsubmit="return confirm('Delete this item?');">
+            <button type="submit" class="danger">Delete</button>
+        </form>
+    </div>
+    {% else %}
+    <p>No items in the library yet.</p>
+    {% endfor %}
+</div>
+{% endblock %}

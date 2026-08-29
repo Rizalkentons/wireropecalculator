@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Wire Rope Picture Tool</title>
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='css/style.css') }}"
+    />
+  </head>
+  <body class="home">
+    <nav class="home-nav">
+      <div class="home-brand">
+        <span class="dot"></span>WireRope<strong>.</strong>
+      </div>
+      <a class="home-cta-pill" href="{{ url_for('quotation.index') }}"
+        >Open Picture Tool</a
+      >
+    </nav>
+
+    <header class="hero">
+      <p class="hero-greeting">
+        &#128075; Hi, this internal tool was built by
+        <strong>Muhammad Rizal Baihaqi</strong>
+      </p>
+      <h1 class="hero-title">
+        <span class="fill">Insert Wire Rope</span>
+        <span class="outline">Pictures. One Click.</span>
+      </h1>
+      <p class="hero-sub">
+        Upload a sales quotation PDF — the matching product picture gets
+        inserted automatically, no manual work needed.
+      </p>
+      <div class="hero-actions">
+        <a class="btn btn-primary" href="{{ url_for('quotation.index') }}"
+          >Open Picture Tool</a
+        >
+        <a class="btn btn-outline" href="#how-it-works">How it works</a>
+      </div>
+    </header>
+
+    <section id="how-it-works" class="how">
+      <h2>How it works</h2>
+      <div class="how-grid">
+        <div class="how-step">
+          <span class="how-num">1</span>
+          <h3>Upload the PDF</h3>
+          <p>
+            Upload your sales quotation exactly as it comes out of your
+            invoicing software — no special format needed.
+          </p>
+        </div>
+        <div class="how-step">
+          <span class="how-num">2</span>
+          <h3>Automatic match</h3>
+          <p>
+            The system reads each item's description and matches it against the
+            standard sling/chain descriptions.
+          </p>
+        </div>
+        <div class="how-step">
+          <span class="how-num">3</span>
+          <h3>Picture inserted</h3>
+          <p>
+            A clear product diagram is placed above the matching line —
+            optionally with custom a/b/c dimensions you enter.
+          </p>
+        </div>
+        <div class="how-step">
+          <span class="how-num">4</span>
+          <h3>Download</h3>
+          <p>
+            Get back the same PDF, now with pictures, ready to send to your
+            customer.
+          </p>
+        </div>
+      </div>
+      <div class="how-cta">
+        <a class="btn btn-primary" href="{{ url_for('quotation.index') }}"
+          >Try it now</a
+        >
+      </div>
+    </section>
+
+    <footer class="home-footer">
+      <p>Built by Muhammad Rizal Baihaqi &middot; Internal tool</p>
+    </footer>
+  </body>
+</html>

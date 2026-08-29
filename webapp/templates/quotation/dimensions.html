@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Enter Dimensions{% endblock %}
+{% block content %}
+<h1>Enter Dimensions</h1>
+
+<div class="card">
+    <p>Found {{ matches|length }} item(s) with a matching picture. Optionally fill in a / b / c for each — whatever you type is drawn on the picture next to that letter. Leave a field blank if it doesn't apply to that item.</p>
+</div>
+
+<form action="{{ url_for('quotation.generate', job_id=job_id) }}" method="post">
+    <input type="hidden" name="original_filename" value="{{ original_filename }}">
+
+    {% for m in matches %}
+    <div class="card">
+        <div style="display:flex; gap:1rem; align-items:flex-start; flex-wrap:wrap;">
+            <img class="thumb" style="width:220px;" src="{{ url_for('library.image', filename=picture_filenames[m.picture_id]) }}" alt="">
+            <div style="flex:1; min-width:220px;">
+                <p class="tags">{{ m.matched_tag }}</p>
+                <label for="a_{{ loop.index0 }}">a</label>
+                <input type="text" id="a_{{ loop.index0 }}" name="a_{{ loop.index0 }}" placeholder="e.g. 15 cm">
+                <label for="b_{{ loop.index0 }}">b</label>
+                <input type="text" id="b_{{ loop.index0 }}" name="b_{{ loop.index0 }}" placeholder="e.g. 1 meter">
+                <label for="c_{{ loop.index0 }}">c</label>
+                <input type="text" id="c_{{ loop.index0 }}" name="c_{{ loop.index0 }}" placeholder="e.g. 20 cm">
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+
+    <p><input type="submit" value="Generate PDF"></p>
+</form>
+{% endblock %}

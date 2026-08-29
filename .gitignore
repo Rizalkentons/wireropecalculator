@@ -1,0 +1,20 @@
+venv/
+instance/
+uploads/library/*
+!uploads/library/.gitkeep
+uploads/quotations/incoming/*
+!uploads/quotations/incoming/.gitkeep
+uploads/quotations/processed/*
+!uploads/quotations/processed/.gitkeep
+__pycache__/
+*.pyc
+.env
+
+# Real customer quotation samples used as local test fixtures during
+# development — contain actual customer names, pricing, and company bank
+# account numbers. Never commit these to a public repo.
+tests/*.pdf
+
+# Picture library source data (kept local per project decision — the repo
+# ships with an empty library, re-seeded/uploaded separately after deploy).
+data/

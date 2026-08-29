@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}Process Quotation{% endblock %}
+{% block content %}
+<div class="upload-hero">
+    <h1>Process a Sales Quotation PDF</h1>
+    <p class="upload-sub">Any line item matching a known sling/chain description gets its picture inserted automatically &mdash; no extra steps needed.</p>
+
+    <form class="upload-card" action="{{ url_for('quotation.process') }}" method="post" enctype="multipart/form-data">
+        <label class="upload-drop" for="quotation_pdf">
+            <span class="upload-icon">&#128196;</span>
+            <span class="upload-drop-text" id="upload-filename">Click to choose a PDF file</span>
+            <span class="upload-drop-hint">or drag and drop it here</span>
+        </label>
+        <input type="file" id="quotation_pdf" name="quotation_pdf" accept="application/pdf" required
+               onchange="document.getElementById('upload-filename').textContent = this.files[0] ? this.files[0].name : 'Click to choose a PDF file';">
+        <input class="upload-submit" type="submit" value="Process PDF">
+    </form>
+</div>
+{% endblock %}

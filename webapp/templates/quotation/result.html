@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Quotation Result{% endblock %}
+{% block content %}
+<h1>Processed: {{ original_filename }}</h1>
+
+<div class="card">
+    <p>Scanned {{ total_lines }} text blocks.
+       <span class="status-ok">{{ matched_with_picture|length }} picture(s) inserted.</span>
+       {% if matched_without_picture %}
+           <span class="status-missing">{{ matched_without_picture|length }} matched item(s) have no picture uploaded yet.</span>
+       {% endif %}
+    </p>
+    <p>
+        <a href="{{ url_for('quotation.download', job_id=job_id) }}"><button>Download PDF</button></a>
+        <a href="{{ url_for('quotation.index') }}">Process another</a>
+    </p>
+</div>
+
+{% if matched_without_picture %}
+<div class="card">
+    <h2>Matched but no picture uploaded yet</h2>
+    <table>
+        <tr><th>Matched text</th><th>Library tag</th></tr>
+        {% for m in matched_without_picture %}
+        <tr><td>{{ m.text }}</td><td>{{ m.matched_tag }}</td></tr>
+        {% endfor %}
+    </table>
+    <p>Go to the <a href="{{ url_for('library.index') }}">Picture Library</a> to attach pictures to these items.</p>
+</div>
+{% endif %}
+
+<div class="card">
+    <h2>Preview</h2>
+    <iframe class="pdf-preview" src="{{ url_for('quotation.preview', job_id=job_id) }}"></iframe>
+</div>
+{% endblock %}
