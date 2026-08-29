@@ -22,14 +22,28 @@ from .pdf_extract import extract_lines_with_bbox
 bp = Blueprint("quotation", __name__, url_prefix="/quotation")
 
 
+class QuotationError(Exception):
+    """A problem worth showing the user in plain language, rather than
+    letting a PyMuPDF/Pillow traceback surface as a raw 500 page."""
+
+
 def _extract_and_match(incoming_path):
     """Re-derive lines/matches/picture_paths for a saved incoming PDF.
 
     Deterministic given the same PDF + current library state, so this is
     safe to call again in the /generate step instead of persisting the
     match list between requests.
+
+    Also returns library_entries so callers don't have to re-query.
     """
-    lines = extract_lines_with_bbox(incoming_path)
+    try:
+        lines = extract_lines_with_bbox(incoming_path)
+    except Exception as exc:
+        raise QuotationError(
+            "That file could not be read as a PDF. Please make sure it's a "
+            "real PDF (not renamed from another format) and try again."
+        ) from exc
+
     library_entries = library_models.get_pictures_with_tags()
     matches = match_items_to_pictures(lines, library_entries)
 
@@ -43,7 +57,18 @@ def _extract_and_match(incoming_path):
 
     matched_with_picture = [m for m in matches if m["picture_id"] in picture_paths]
     matched_without_picture = [m for m in matches if m["picture_id"] not in picture_paths]
-    return lines, matched_with_picture, matched_without_picture, picture_paths
+    return lines, matched_with_picture, matched_without_picture, picture_paths, library_entries
+
+
+def _render_pdf(incoming_path, matches, picture_paths, processed_path):
+    try:
+        pdf_draw.insert_images(incoming_path, matches, picture_paths, processed_path)
+    except Exception as exc:
+        raise QuotationError(
+            "Something went wrong while building the PDF. One of the "
+            "matched library pictures may be damaged — try re-uploading it "
+            "from the Picture Library page."
+        ) from exc
 
 
 @bp.route("/")
@@ -63,35 +88,42 @@ def process():
         return redirect(url_for("quotation.index"))
 
     job_id = uuid.uuid4().hex
-    original_filename = secure_filename(file.filename)
+    original_filename = secure_filename(file.filename) or "quotation.pdf"
     incoming_path = os.path.join(
         current_app.config["QUOTATION_INCOMING_FOLDER"], f"{job_id}.pdf"
     )
     file.save(incoming_path)
 
-    lines, matched_with_picture, matched_without_picture, picture_paths = _extract_and_match(
-        incoming_path
-    )
+    try:
+        (
+            lines,
+            matched_with_picture,
+            matched_without_picture,
+            picture_paths,
+            library_entries,
+        ) = _extract_and_match(incoming_path)
 
-    if not matched_with_picture:
-        # Nothing to size — skip straight to generating (empty) output.
-        processed_path = os.path.join(
-            current_app.config["QUOTATION_PROCESSED_FOLDER"], f"{job_id}.pdf"
-        )
-        pdf_draw.insert_images(incoming_path, [], {}, processed_path)
-        return render_template(
-            "quotation/result.html",
-            job_id=job_id,
-            original_filename=original_filename,
-            matched_with_picture=matched_with_picture,
-            matched_without_picture=matched_without_picture,
-            total_lines=len(lines),
-        )
+        if not matched_with_picture:
+            # Nothing to size — skip straight to generating (empty) output.
+            processed_path = os.path.join(
+                current_app.config["QUOTATION_PROCESSED_FOLDER"], f"{job_id}.pdf"
+            )
+            _render_pdf(incoming_path, [], {}, processed_path)
+            return render_template(
+                "quotation/result.html",
+                job_id=job_id,
+                original_filename=original_filename,
+                matched_with_picture=matched_with_picture,
+                matched_without_picture=matched_without_picture,
+                total_lines=len(lines),
+            )
+    except QuotationError as exc:
+        current_app.logger.exception("Quotation processing failed")
+        flash(str(exc))
+        return redirect(url_for("quotation.index"))
 
     picture_filenames = {
-        entry["id"]: entry["filename"]
-        for entry in library_models.get_pictures_with_tags()
-        if entry["filename"]
+        entry["id"]: entry["filename"] for entry in library_entries if entry["filename"]
     }
 
     return render_template(
@@ -110,19 +142,28 @@ def generate(job_id):
         flash("This job has expired, please upload the PDF again.")
         return redirect(url_for("quotation.index"))
 
-    lines, matched_with_picture, matched_without_picture, picture_paths = _extract_and_match(
-        incoming_path
-    )
+    try:
+        (
+            lines,
+            matched_with_picture,
+            matched_without_picture,
+            picture_paths,
+            _library_entries,
+        ) = _extract_and_match(incoming_path)
 
-    for i, m in enumerate(matched_with_picture):
-        m["dim_a"] = request.form.get(f"a_{i}", "").strip()
-        m["dim_b"] = request.form.get(f"b_{i}", "").strip()
-        m["dim_c"] = request.form.get(f"c_{i}", "").strip()
+        for i, m in enumerate(matched_with_picture):
+            m["dim_a"] = request.form.get(f"a_{i}", "").strip()
+            m["dim_b"] = request.form.get(f"b_{i}", "").strip()
+            m["dim_c"] = request.form.get(f"c_{i}", "").strip()
 
-    processed_path = os.path.join(
-        current_app.config["QUOTATION_PROCESSED_FOLDER"], f"{job_id}.pdf"
-    )
-    pdf_draw.insert_images(incoming_path, matched_with_picture, picture_paths, processed_path)
+        processed_path = os.path.join(
+            current_app.config["QUOTATION_PROCESSED_FOLDER"], f"{job_id}.pdf"
+        )
+        _render_pdf(incoming_path, matched_with_picture, picture_paths, processed_path)
+    except QuotationError as exc:
+        current_app.logger.exception("Quotation generation failed")
+        flash(str(exc))
+        return redirect(url_for("quotation.index"))
 
     return render_template(
         "quotation/result.html",

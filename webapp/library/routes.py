@@ -11,6 +11,7 @@ from flask import (
     send_from_directory,
     url_for,
 )
+from PIL import Image
 from werkzeug.utils import secure_filename
 
 from . import models
@@ -20,27 +21,55 @@ bp = Blueprint("library", __name__, url_prefix="/library")
 ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "webp"}
 
 
-def _allowed_file(filename):
-    return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
-
-
 def _parse_tags(raw):
     return [t.strip() for t in raw.split(",") if t.strip()]
 
 
-def _save_uploaded_image(file):
-    """Save an uploaded FileStorage under a unique name. Returns (stored, original) or None."""
-    if not file or file.filename == "":
+def _allowed_extension(filename):
+    """Lowercased extension of the ORIGINAL upload name, or None if it
+    isn't an accepted image type.
+
+    Deliberately read before secure_filename(): that strips non-ASCII
+    characters, so a perfectly ordinary name like "にほん.jpg" collapses to
+    just "jpg" — leaving no dot to split on and crashing anything that
+    assumed there would be one.
+    """
+    if not filename or "." not in filename:
         return None
-    if not _allowed_file(file.filename):
+    ext = filename.rsplit(".", 1)[1].lower()
+    return ext if ext in ALLOWED_EXTENSIONS else None
+
+
+def _save_uploaded_image(file):
+    """Save an uploaded image under a unique name.
+
+    Returns (stored_filename, display_name), or None when the upload
+    isn't a usable image. The bytes are verified with Pillow rather than
+    trusted by extension alone: a mislabelled file would otherwise be
+    accepted here and only fail much later, in the middle of somebody
+    else's PDF generation, far from the upload that caused it.
+    """
+    if not file or not file.filename:
         return None
 
-    original_filename = secure_filename(file.filename)
-    ext = original_filename.rsplit(".", 1)[1].lower()
+    ext = _allowed_extension(file.filename)
+    if ext is None:
+        return None
+
+    try:
+        Image.open(file.stream).verify()
+    except Exception:
+        return None
+    file.stream.seek(0)  # verify() consumes the stream; rewind before saving
+
+    display_name = secure_filename(file.filename)
+    if not display_name or "." not in display_name:
+        display_name = f"picture.{ext}"
+
     stored_filename = f"{uuid.uuid4().hex}.{ext}"
     dest_path = os.path.join(current_app.config["LIBRARY_UPLOAD_FOLDER"], stored_filename)
     file.save(dest_path)
-    return stored_filename, original_filename
+    return stored_filename, display_name
 
 
 @bp.route("/image/<filename>")
@@ -64,7 +93,7 @@ def upload():
 
     saved = _save_uploaded_image(request.files.get("picture"))
     if saved is None:
-        flash("Please choose a valid picture file (PNG, JPG, GIF, or WEBP).")
+        flash("Please choose a valid, readable picture file (PNG, JPG, GIF, or WEBP).")
         return redirect(url_for("library.index"))
 
     stored_filename, original_filename = saved
@@ -82,7 +111,7 @@ def upload_image(picture_id):
 
     saved = _save_uploaded_image(request.files.get("picture"))
     if saved is None:
-        flash("Please choose a valid picture file (PNG, JPG, GIF, or WEBP).")
+        flash("Please choose a valid, readable picture file (PNG, JPG, GIF, or WEBP).")
         return redirect(url_for("library.index"))
 
     old_filename = picture["filename"]

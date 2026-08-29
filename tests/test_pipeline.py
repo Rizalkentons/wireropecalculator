@@ -1,110 +1,155 @@
-"""Standalone end-to-end check: attach a picture to a seeded item, build a
-fake quotation PDF containing that item's exact description text, run it
-through the real /quotation/process route, and verify the output PDF has
-an image inserted near the matched text.
+"""End-to-end checks for the quotation pipeline.
+
+Runs the real HTTP routes (login -> upload -> dimensions -> generate ->
+download) through Flask's test client, plus the input-handling edge cases
+that used to return raw 500 pages.
+
+Everything happens inside a throwaway temp directory, so this never reads
+or writes the real picture library or database — an earlier version of
+this file did, and running it silently overwrote a real diagram.
 
 Run with: venv\\Scripts\\python.exe tests\\test_pipeline.py
 """
 import io
 import os
 import re
+import shutil
 import sys
+import tempfile
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import fitz
 from PIL import Image
 
-from webapp import create_app
-from webapp.db import get_db
+TAG = "Mechanical splice sling with thimble eye on both end"
+PASSWORD = "test-password"
 
-TARGET_TAG = (
-    "Mechanical splice sling with thimble eye at one end and tappered / "
-    "plain (seizing) at the other end"
-)
+passed = failed = 0
 
 
-def make_test_image_bytes():
-    img = Image.new("RGB", (200, 200), color=(40, 160, 60))
+def check(label, condition, detail=""):
+    global passed, failed
+    if condition:
+        passed += 1
+        print(f"  PASS  {label}")
+    else:
+        failed += 1
+        print(f"  FAIL  {label} {detail}")
+
+
+def make_png(color=(40, 160, 60)):
     buf = io.BytesIO()
-    img.save(buf, format="PNG")
+    Image.new("RGB", (400, 120), color=color).save(buf, format="PNG")
     buf.seek(0)
     return buf
 
 
-def make_test_quotation_pdf_bytes():
+def make_quotation_pdf(text=TAG):
     doc = fitz.open()
     page = doc.new_page()
-    page.insert_text((72, 100), "SALES QUOTATION - TEST", fontsize=14)
-    page.insert_text((72, 140), "Item 1:", fontsize=10)
-    page.insert_text((72, 160), TARGET_TAG, fontsize=10)
-    page.insert_text((72, 180), "Qty: 2   Unit Price: 1,000,000", fontsize=10)
-    page.insert_text((72, 220), "Item 2:", fontsize=10)
-    page.insert_text((72, 240), "Some unrelated line item with no match", fontsize=10)
+    page.insert_text((72, 100), "QUOTATION - TEST", fontsize=14)
+    page.insert_text((72, 160), text, fontsize=10)
+    page.insert_text((72, 180), "1  Some material  2.00  PCS  1,000  2,000", fontsize=10)
     buf = io.BytesIO(doc.tobytes())
     doc.close()
     return buf
 
 
+def login(client):
+    return client.post("/login", data={"password": PASSWORD}, follow_redirects=False)
+
+
 def main():
-    app = create_app()
-    with app.app_context():
-        db = get_db()
-        row = db.execute(
-            "SELECT picture_id FROM tags WHERE keyword = ?", (TARGET_TAG,)
-        ).fetchone()
-        assert row is not None, "Target tag not found in seeded library — did import-kata-baku run?"
-        picture_id = row["picture_id"]
-        print(f"Target picture_id: {picture_id}")
+    from webapp import create_app
 
-    client = app.test_client()
+    data_dir = tempfile.mkdtemp(prefix="wirerope_test_")
+    os.environ["DATA_DIR"] = data_dir
+    try:
+        app = create_app({"SITE_PASSWORD": PASSWORD, "SECRET_KEY": "test", "TESTING": True})
+        client = app.test_client()
 
-    resp = client.post(
-        f"/library/{picture_id}/upload-image",
-        data={"picture": (make_test_image_bytes(), "test_apple.png")},
-        content_type="multipart/form-data",
-    )
-    assert resp.status_code == 302, f"attach picture failed: {resp.status_code} {resp.data[:300]}"
-    print("Attached test image to library item.")
+        print("\n[auth]")
+        check("anonymous request redirects to login",
+              client.get("/", follow_redirects=False).status_code == 302)
+        check("wrong password is rejected",
+              "Wrong password" in client.post(
+                  "/login", data={"password": "nope"}).data.decode())
+        check("correct password logs in", login(client).status_code == 302)
+        check("home reachable once logged in", client.get("/").status_code == 200)
 
-    resp = client.post(
-        "/quotation/process",
-        data={"quotation_pdf": (make_test_quotation_pdf_bytes(), "test_quotation.pdf")},
-        content_type="multipart/form-data",
-    )
-    assert resp.status_code == 200, f"process failed: {resp.status_code} {resp.data[:500]}"
-    html = resp.data.decode("utf-8")
+        r = client.post("/login?next=https://evil.example/phish",
+                        data={"password": PASSWORD}, follow_redirects=False)
+        check("open redirect is blocked",
+              not (r.headers.get("Location") or "").startswith("http"),
+              f"-> {r.headers.get('Location')!r}")
 
-    m = re.search(r"/quotation/download/([0-9a-f]{32})", html)
-    assert m, "job_id not found in result page"
-    job_id = m.group(1)
-    print(f"job_id: {job_id}")
+        print("\n[library upload validation]")
+        r = client.post("/library/upload",
+                        data={"picture": (make_png(), "にほん.jpg"), "tags": TAG},
+                        content_type="multipart/form-data")
+        check("non-ASCII filename accepted (no 500)", r.status_code == 302,
+              f"-> {r.status_code}")
 
-    assert "1 picture(s) inserted" in html or "picture(s) inserted" in html
-    print("Result page reports a picture was inserted.")
+        r = client.post("/library/upload",
+                        data={"picture": (io.BytesIO(b"not an image"), "fake.jpg"),
+                              "tags": "junk"},
+                        content_type="multipart/form-data")
+        check("non-image file rejected at upload", r.status_code == 302)
+        check("rejected file left no library entry",
+              "junk" not in client.get("/library/").data.decode())
 
-    resp = client.get(f"/quotation/download/{job_id}")
-    assert resp.status_code == 200
-    out_path = os.path.join(os.path.dirname(__file__), "output_test_quotation.pdf")
-    with open(out_path, "wb") as f:
-        f.write(resp.data)
-    print(f"Saved processed PDF to {out_path}")
+        print("\n[quotation pipeline]")
+        r = client.post("/quotation/process",
+                        data={"quotation_pdf": (make_quotation_pdf(), "q.pdf")},
+                        content_type="multipart/form-data")
+        check("process returns dimensions page", r.status_code == 200)
+        m = re.search(r"/quotation/generate/([0-9a-f]{32})", r.data.decode())
+        check("dimensions page exposes a job id", m is not None)
 
-    doc = fitz.open(out_path)
-    page = doc[0]
-    images = page.get_images(full=True)
-    print(f"Images found on page 1: {len(images)}")
-    assert len(images) >= 1, "No image was actually embedded in the output PDF!"
+        job_id = m.group(1)
+        r = client.post(f"/quotation/generate/{job_id}",
+                        data={"a_0": "15 cm", "b_0": "10 meter"})
+        check("generate succeeds", r.status_code == 200)
+        check("result reports an inserted picture",
+              "1 picture(s) inserted" in r.data.decode(), )
 
-    for img in images:
-        xref = img[0]
-        rects = page.get_image_rects(xref)
-        for r in rects:
-            print(f"  image xref={xref} rect={r}")
-    doc.close()
+        pdf = client.get(f"/quotation/download/{job_id}").data
+        doc = fitz.open(stream=pdf, filetype="pdf")
+        check("output PDF has exactly 1 page", len(doc) == 1, f"-> {len(doc)}")
+        check("output PDF actually embeds an image", len(doc[0].get_images(full=True)) >= 1)
+        text = doc[0].get_text()
+        check("dimension labels drawn into the PDF",
+              "a = 15 cm" in text and "b = 10 meter" in text)
+        doc.close()
 
-    print("\nPIPELINE TEST PASSED")
+        print("\n[bad input handling]")
+        r = client.post("/quotation/process",
+                        data={"quotation_pdf": (io.BytesIO(b"not a pdf"), "broken.pdf")},
+                        content_type="multipart/form-data",
+                        follow_redirects=True)
+        check("corrupt PDF shows a message, not a 500",
+              r.status_code == 200 and "could not be read as a PDF" in r.data.decode(),
+              f"-> {r.status_code}")
+
+        blank = fitz.open()
+        blank.new_page()
+        buf = io.BytesIO(blank.tobytes())
+        blank.close()
+        r = client.post("/quotation/process",
+                        data={"quotation_pdf": (buf, "scan.pdf")},
+                        content_type="multipart/form-data")
+        check("PDF with no matching text still succeeds", r.status_code == 200)
+
+        check("unknown page returns friendly 404",
+              client.get("/definitely-not-a-page").status_code == 404)
+    finally:
+        os.environ.pop("DATA_DIR", None)
+        shutil.rmtree(data_dir, ignore_errors=True)
+
+    print(f"\n{passed} passed, {failed} failed")
+    return 1 if failed else 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

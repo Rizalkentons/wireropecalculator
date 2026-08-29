@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block title %}{{ code }} — Wire Rope Picture Tool{% endblock %}
+{% block content %}
+<div class="upload-hero">
+    <h1>{{ heading }}</h1>
+    <p class="upload-sub">{{ message }}</p>
+    <p><a class="btn btn-primary" href="{{ url_for('index') }}">Back to home</a></p>
+</div>
+{% endblock %}
