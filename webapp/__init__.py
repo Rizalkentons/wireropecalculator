@@ -4,18 +4,25 @@ from flask import Flask, render_template
 
 
 def create_app(test_config=None):
-    app = Flask(__name__, instance_relative_config=True)
+    # DATA_DIR points at a persistent volume when deployed (e.g. Railway) —
+    # without it, the SQLite database and uploaded pictures/PDFs would be
+    # wiped on every redeploy/restart, since a container's own filesystem
+    # isn't kept between deploys. Locally (DATA_DIR unset) everything stays
+    # right next to the project, exactly as before.
+    data_dir = os.environ.get("DATA_DIR")
+    if data_dir:
+        app = Flask(__name__, instance_path=os.path.join(data_dir, "instance"))
+        uploads_root = os.path.join(data_dir, "uploads")
+    else:
+        app = Flask(__name__, instance_relative_config=True)
+        uploads_root = os.path.join(app.root_path, "..", "uploads")
 
     app.config.from_mapping(
-        SECRET_KEY="dev",
+        SECRET_KEY=os.environ.get("SECRET_KEY", "dev"),
         DATABASE=os.path.join(app.instance_path, "library.db"),
-        LIBRARY_UPLOAD_FOLDER=os.path.join(app.root_path, "..", "uploads", "library"),
-        QUOTATION_INCOMING_FOLDER=os.path.join(
-            app.root_path, "..", "uploads", "quotations", "incoming"
-        ),
-        QUOTATION_PROCESSED_FOLDER=os.path.join(
-            app.root_path, "..", "uploads", "quotations", "processed"
-        ),
+        LIBRARY_UPLOAD_FOLDER=os.path.join(uploads_root, "library"),
+        QUOTATION_INCOMING_FOLDER=os.path.join(uploads_root, "quotations", "incoming"),
+        QUOTATION_PROCESSED_FOLDER=os.path.join(uploads_root, "quotations", "processed"),
         MAX_CONTENT_LENGTH=25 * 1024 * 1024,  # 25 MB
     )
 
