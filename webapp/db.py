@@ -34,6 +34,22 @@ def init_db_command():
     click.echo("Initialized the database.")
 
 
+def ensure_db_initialized(app):
+    """Create the tables on first run only — e.g. a fresh deploy pointed
+    at an empty volume. Never touches an already-initialized database, so
+    a redeploy/restart can't silently wipe the picture library.
+    """
+    with app.app_context():
+        db = get_db()
+        row = db.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='pictures'"
+        ).fetchone()
+        if row is None:
+            init_db()
+        close_db()
+
+
 def init_app(app):
     app.teardown_appcontext(close_db)
     app.cli.add_command(init_db_command)
+    ensure_db_initialized(app)
