@@ -8,8 +8,11 @@ def create_app(test_config=None):
     # without it, the SQLite database and uploaded pictures/PDFs would be
     # wiped on every redeploy/restart, since a container's own filesystem
     # isn't kept between deploys. Locally (DATA_DIR unset) everything stays
-    # right next to the project, exactly as before.
-    data_dir = os.environ.get("DATA_DIR")
+    # right next to the project, exactly as before. Falls back to
+    # RAILWAY_VOLUME_MOUNT_PATH, which Railway sets automatically once a
+    # volume is attached — so DATA_DIR usually doesn't need to be set by
+    # hand at all on Railway specifically.
+    data_dir = os.environ.get("DATA_DIR") or os.environ.get("RAILWAY_VOLUME_MOUNT_PATH")
     if data_dir:
         app = Flask(__name__, instance_path=os.path.join(data_dir, "instance"))
         uploads_root = os.path.join(data_dir, "uploads")
